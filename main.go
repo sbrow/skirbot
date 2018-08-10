@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strings"
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
@@ -81,10 +82,26 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if reg.MatchString(m.Content) {
 		name := reg.ReplaceAllString(m.Content, "")
 		card, err := skirmish.Load(name)
+		if err != nil && !strings.Contains(err.Error(), "No card found") {
+			log.Println(err)
+			return
+		}
+		if card != nil {
+			s.ChannelMessageSend(m.ChannelID, card.String())
+			return
+		}
+		rule, err := skirmish.Query(`SELECT rules FROM glossary
+WHERE levenshtein(name, $1) <= 3
+ORDER BY levenshtein(name, $1) ASC LIMIT 1`, name)
 		if err != nil {
 			log.Println(err)
 			return
 		}
-		s.ChannelMessageSend(m.ChannelID, card.String())
+		var str *string
+		for rule.Next() {
+			rule.Scan(&str)
+			s.ChannelMessageSend(m.ChannelID, *str)
+		}
+
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"regexp"
 	"strings"
 	"syscall"
 
@@ -15,14 +14,61 @@ import (
 	"github.com/sbrow/skirmish"
 )
 
-// Trigger is the regexp to match whether to respond to a message or not.
-const Trigger = "^!"
+// Prefix is the regexp to match whether to respond to a message or not.
+const Prefix = "!"
 
 // Token holds The API Token for the bot.
 var Token string
 
 // ExitStatus is the current exit status.
+// TODO(sbrow): Unused.
 var ExitStatus = 0
+
+// Command is a command that a user can execute.
+type Command struct {
+	f func(*Command, *NewMessage) error
+}
+
+// Content returns the Content of the m with the endpoint removed.
+func (c *Command) Content(n *NewMessage) string {
+	return strings.TrimPrefix(n.Message.Content, Prefix)
+}
+
+var Query = &Command{
+	f: func(c *Command, n *NewMessage) error {
+		content := c.Content(n)
+
+		args := map[string]struct {
+			table string
+			col   string
+		}{
+			"card": {"cards", "name"},
+			"rule": {"glossary", "rules"},
+		}
+		query := func(name string) string {
+			return fmt.Sprintf("SELECT %s FROM %s Where levenshtein(name, $1) <=2"+
+				"ORDER BY levenshtein(name, $1) ASC LIMIT 1", args[name].col, args[name].table)
+		}
+		var name *string
+		err := skirmish.QueryRow(query("card"), content).Scan(&name)
+		if name != nil {
+			card, err := skirmish.Load(*name)
+			if err != nil && !strings.Contains(err.Error(), "No card found") {
+				return err
+			}
+			if card != nil {
+				n.Session.ChannelMessageSend(n.Message.ChannelID, card.String())
+				return nil
+			}
+		}
+		err = skirmish.QueryRow(query("rule"), content).Scan(&name)
+		if err != nil {
+			return err
+		}
+		n.Session.ChannelMessageSend(n.Message.ChannelID, *name)
+		return nil
+	},
+}
 
 func init() {
 	flag.StringVar(&Token, "t", "", "The API Token to use for the bot.")
@@ -70,38 +116,53 @@ func main() {
 
 // messageCreate is called every time a new message is created on any channel that the bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	reg := regexp.MustCompile(Trigger)
-
 	// Ignore all messages created by the bot itself
 	// This isn't required in this specific example but it's a good practice.
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
 
-	// Look for the trigger characters
-	if reg.MatchString(m.Content) {
-		name := reg.ReplaceAllString(m.Content, "")
-		card, err := skirmish.Load(name)
-		if err != nil && !strings.Contains(err.Error(), "No card found") {
-			log.Println(err)
-			return
-		}
-		if card != nil {
-			s.ChannelMessageSend(m.ChannelID, card.String())
-			return
-		}
-		rule, err := skirmish.Query(`SELECT rules FROM glossary
-WHERE levenshtein(name, $1) <= 3
-ORDER BY levenshtein(name, $1) ASC LIMIT 1`, name)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		var str *string
-		for rule.Next() {
-			rule.Scan(&str)
-			s.ChannelMessageSend(m.ChannelID, *str)
-		}
-
+	ch, err := s.Channel(m.ChannelID)
+	if err != nil {
+		log.Println(err)
+		return
 	}
+	name := ch.Name
+	if name != "" && !strings.HasPrefix(m.Content, Prefix) {
+		return
+	}
+	if name == "" {
+		name = "DM"
+	}
+	logEntry := fmt.Sprintf("[#%s][%s] \"%s\"", name, m.Author, m.Content)
+
+	msg := &NewMessage{Session: s, Message: m}
+	switch {
+	default:
+		err = Query.f(Query, msg)
+	}
+	if err != nil {
+		// Print error
+		defer log.SetPrefix(log.Prefix())
+		logEntry += fmt.Sprintf(" ERROR: \"%s\"", err.Error())
+	} else {
+		// Print message
+	}
+	log.Println(logEntry)
+}
+
+type NewMessage struct {
+	Session *discordgo.Session
+	Message *discordgo.MessageCreate
+}
+
+// isDM returns true if a message comes from a DM channel
+func (n *NewMessage) isDM() (bool, error) {
+	channel, err := n.Session.State.Channel(n.Message.ChannelID)
+	if err != nil {
+		if channel, err = n.Session.Channel(n.Message.ChannelID); err != nil {
+			return false, err
+		}
+	}
+	return channel.Type == discordgo.ChannelTypeDM, nil
 }

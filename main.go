@@ -24,50 +24,43 @@ var Token string
 // TODO(sbrow): Unused.
 var ExitStatus = 0
 
-// Command is a command that a user can execute.
-type Command struct {
-	f func(*Command, *NewMessage) error
+// Content returns the Content of the message with the Prefix removed.
+func Content(m *discordgo.MessageCreate) string {
+	return strings.TrimPrefix(m.Content, Prefix)
 }
 
-// Content returns the Content of the m with the endpoint removed.
-func (c *Command) Content(n *NewMessage) string {
-	return strings.TrimPrefix(n.Message.Content, Prefix)
-}
+func Query(s *discordgo.Session, m *discordgo.MessageCreate) error {
+	content := Content(m)
 
-var Query = &Command{
-	f: func(c *Command, n *NewMessage) error {
-		content := c.Content(n)
-
-		args := map[string]struct {
-			table string
-			col   string
-		}{
-			"card": {"cards", "name"},
-			"rule": {"glossary", "rules"},
-		}
-		query := func(name string) string {
-			return fmt.Sprintf("SELECT %s FROM %s Where levenshtein(name, $1) <=2"+
-				"ORDER BY levenshtein(name, $1) ASC LIMIT 1", args[name].col, args[name].table)
-		}
-		var name *string
-		err := skirmish.QueryRow(query("card"), content).Scan(&name)
-		if name != nil {
-			card, err := skirmish.Load(*name)
-			if err != nil && !strings.Contains(err.Error(), "No card found") {
-				return err
-			}
-			if card != nil {
-				n.Session.ChannelMessageSend(n.Message.ChannelID, card.String())
-				return nil
-			}
-		}
-		err = skirmish.QueryRow(query("rule"), content).Scan(&name)
-		if err != nil {
+	args := map[string]struct {
+		table string
+		col   string
+	}{
+		"card": {"cards", "name"},
+		"rule": {"glossary", "rules"},
+	}
+	query := func(name string) string {
+		return fmt.Sprintf("SELECT %s FROM %s Where levenshtein(name, $1) <=2"+
+			"ORDER BY levenshtein(name, $1) ASC LIMIT 1", args[name].col, args[name].table)
+	}
+	var name *string
+	err := skirmish.QueryRow(query("card"), content).Scan(&name)
+	if name != nil {
+		card, err := skirmish.Load(*name)
+		if err != nil && !strings.Contains(err.Error(), "No card found") {
 			return err
 		}
-		n.Session.ChannelMessageSend(n.Message.ChannelID, *name)
-		return nil
-	},
+		if card != nil {
+			s.ChannelMessageSend(m.ChannelID, card.String())
+			return nil
+		}
+	}
+	err = skirmish.QueryRow(query("rule"), content).Scan(&name)
+	if err != nil {
+		return err
+	}
+	s.ChannelMessageSend(m.ChannelID, *name)
+	return nil
 }
 
 func init() {
@@ -127,6 +120,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		log.Println(err)
 		return
 	}
+	// TODO(sbrow): Cleanup
 	name := ch.Name
 	if name != "" && !strings.HasPrefix(m.Content, Prefix) {
 		return
@@ -134,12 +128,11 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if name == "" {
 		name = "DM"
 	}
+	// End cleanup.
 	logEntry := fmt.Sprintf("[#%s][%s] \"%s\"", name, m.Author, m.Content)
-
-	msg := &NewMessage{Session: s, Message: m}
 	switch {
 	default:
-		err = Query.f(Query, msg)
+		err = Query(s, m)
 	}
 	if err != nil {
 		// Print error

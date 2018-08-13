@@ -33,6 +33,7 @@ type Result struct {
 	Error    string
 }
 
+// Query returns results from the database.
 func Query(m *NewMessage) Result {
 	ret := m.Log()
 	content := strings.TrimPrefix(m.Message.Content, Prefix)
@@ -137,7 +138,9 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			if err != nil {
 				log.Println(err)
 			}
-			log.Println(string(data))
+			if r.Guild != "Bot Spam" {
+				log.Println(string(data))
+			}
 		}(result)
 		s.ChannelMessageSend(ch.ID, result.Response)
 	}
@@ -192,10 +195,7 @@ func (n *NewMessage) Guild() (*discordgo.Guild, error) {
 	// If there is an error, fall back to the restapi.
 	guild, err := n.Session.State.Guild(guildID)
 	if err != nil {
-		guild, err = n.Session.Guild(guildID)
-		if err != nil {
-			return guild, err
-		}
+		return n.Session.Guild(guildID)
 	}
 	return guild, nil
 }

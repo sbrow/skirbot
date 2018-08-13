@@ -2,6 +2,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -14,23 +15,27 @@ import (
 	"github.com/sbrow/skirmish"
 )
 
+// EmptyToken is the default starting Token.
+const EmptyToken = ""
+
 // Prefix is the regexp to match whether to respond to a message or not.
 const Prefix = "!"
 
 // Token holds The API Token for the bot.
 var Token string
 
-// ExitStatus is the current exit status.
-// TODO(sbrow): Unused.
-var ExitStatus = 0
-
-// Content returns the Content of the message with the Prefix removed.
-func Content(m *discordgo.MessageCreate) string {
-	return strings.TrimPrefix(m.Content, Prefix)
+type Result struct {
+	Guild    string
+	Channel  string
+	Author   string
+	Message  string
+	Response string
+	Error    string
 }
 
-func Query(s *discordgo.Session, m *discordgo.MessageCreate) error {
-	content := Content(m)
+func Query(m *NewMessage) Result {
+	ret := m.Log()
+	content := strings.TrimPrefix(m.Message.Content, Prefix)
 
 	args := map[string]struct {
 		table string
@@ -48,63 +53,60 @@ func Query(s *discordgo.Session, m *discordgo.MessageCreate) error {
 	if name != nil {
 		card, err := skirmish.Load(*name)
 		if err != nil && !strings.Contains(err.Error(), "No card found") {
-			return err
+			ret.Error = err.Error()
+			return ret
 		}
 		if card != nil {
-			s.ChannelMessageSend(m.ChannelID, card.String())
-			return nil
+			ret.Response = card.String()
+			return ret
 		}
 	}
 	err = skirmish.QueryRow(query("rule"), content).Scan(&name)
 	if err != nil {
-		return err
+		ret.Error = err.Error()
+		return ret
 	}
-	s.ChannelMessageSend(m.ChannelID, *name)
-	return nil
+	ret.Response = *name
+	return ret
 }
 
 func init() {
-	flag.StringVar(&Token, "t", "", "The API Token to use for the bot.")
+	flag.StringVar(&Token, "t", EmptyToken, "The API Token to use for the bot.")
 	flag.Parse()
 }
 
 func main() {
-	defer func() {
-		os.Exit(ExitStatus)
-	}()
-
-	// End if no token provided
-	if Token == "" {
+	// Terminate if no token was provided
+	if Token == EmptyToken {
 		fmt.Println("No token provided.")
-		ExitStatus = 1
-		return
+		os.Exit(1)
 	}
 
 	// Create a new Discord session using the provided bot token.
-	dg, err := discordgo.New("Bot " + Token)
+	s, err := discordgo.New("Bot " + Token)
 	if err != nil {
 		fmt.Println("error creating Discord session,", err)
 		return
 	}
 
 	// Register the messageCreate func as a callback for MessageCreate events.
-	dg.AddHandler(messageCreate)
+	s.AddHandler(messageCreate)
 
 	// Open a websocket connection to Discord and begin listening.
-	err = dg.Open()
-	if err != nil {
+	if err = s.Open(); err != nil {
 		fmt.Println("error opening connection,", err)
 		return
 	}
+	// Cleanly close down the Discord session.
+	defer s.Close()
 
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
-	<-sc
 
-	// Cleanly close down the Discord session.
-	dg.Close()
+	// Wait for term signal.
+	<-sc
 }
 
 // messageCreate is called every time a new message is created on any channel that the bot has access to.
@@ -115,47 +117,94 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	ch, err := s.Channel(m.ChannelID)
+	msg := &NewMessage{s, m}
+
+	// Retrieve the name of the channel
+	ch, err := msg.Channel()
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	// TODO(sbrow): Cleanup
-	name := ch.Name
-	if name != "" && !strings.HasPrefix(m.Content, Prefix) {
-		return
-	}
-	if name == "" {
-		name = "DM"
-	}
-	// End cleanup.
-	logEntry := fmt.Sprintf("[#%s][%s] \"%s\"", name, m.Author, m.Content)
+
 	switch {
+	// If the channel is public and the Prefix character was not found, do nothing.
+	case ch.Name != "" && !strings.HasPrefix(m.Content, Prefix):
+		return
 	default:
-		err = Query(s, m)
+		result := Query(msg)
+		go func(r Result) {
+			data, err := json.Marshal(r)
+			if err != nil {
+				log.Println(err)
+			}
+			log.Println(string(data))
+		}(result)
+		s.ChannelMessageSend(ch.ID, result.Response)
 	}
-	if err != nil {
-		// Print error
-		defer log.SetPrefix(log.Prefix())
-		logEntry += fmt.Sprintf(" ERROR: \"%s\"", err.Error())
-	} else {
-		// Print message
-	}
-	log.Println(logEntry)
 }
 
+// NewMessage wraps session and Message information for a new message.
 type NewMessage struct {
 	Session *discordgo.Session
 	Message *discordgo.MessageCreate
 }
 
-// isDM returns true if a message comes from a DM channel
-func (n *NewMessage) isDM() (bool, error) {
+// Channel returns the name of the channel, or DM if no name was found.
+func (n *NewMessage) Channel() (*discordgo.Channel, error) {
 	channel, err := n.Session.State.Channel(n.Message.ChannelID)
 	if err != nil {
-		if channel, err = n.Session.Channel(n.Message.ChannelID); err != nil {
-			return false, err
+		return n.Session.Channel(n.Message.ChannelID)
+	}
+	return channel, nil
+}
+
+// Log returns the message in a log friendly string format.
+func (n *NewMessage) Log() Result {
+	ret := Result{Author: n.Message.Author.String()}
+
+	guild, err := n.Guild()
+	if err == nil {
+		if guild != nil {
+			ret.Guild = guild.Name
 		}
 	}
-	return channel.Type == discordgo.ChannelTypeDM, nil
+	ch, err := n.Channel()
+	if err == nil {
+		if ch.Name != "" {
+			ret.Channel = ch.Name
+		} else {
+			ret.Channel = "Direct Message"
+		}
+	}
+	ret.Message = n.Message.Content
+	return ret
+}
+
+// Guild returns the Guild that the message was posted in.
+func (n *NewMessage) Guild() (*discordgo.Guild, error) {
+	ch, err := n.Channel()
+	if err != nil {
+		return nil, err
+	}
+	guildID := ch.GuildID
+
+	// Attempt to get the guild from the state,
+	// If there is an error, fall back to the restapi.
+	guild, err := n.Session.State.Guild(guildID)
+	if err != nil {
+		guild, err = n.Session.Guild(guildID)
+		if err != nil {
+			return guild, err
+		}
+	}
+	return guild, nil
+}
+
+// IsDM returns true if a message comes from a DM channel
+func (n *NewMessage) IsDM() (bool, error) {
+	ch, err := n.Channel()
+	if err != nil {
+		return false, err
+	}
+	return ch.Name == "DM", nil
 }

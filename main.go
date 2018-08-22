@@ -43,7 +43,7 @@ func Query(m *NewMessage) Result {
 		col   string
 	}{
 		"card": {"cards", "name"},
-		"rule": {"glossary", "rules"},
+		"rule": {"glossary", "long"},
 	}
 	query := func(name string) string {
 		return fmt.Sprintf("SELECT %s FROM %s Where levenshtein(name, $1) <=2"+

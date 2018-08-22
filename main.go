@@ -12,8 +12,19 @@ import (
 	"syscall"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/gin-gonic/gin"
 	"github.com/sbrow/skirmish"
 )
+
+func Gin() {
+	r := gin.Default()
+	r.GET("/ping", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "pong",
+		})
+	})
+	r.Run(":" + os.Getenv("PORT")) // listen and serve on 0.0.0.0:8080
+}
 
 // EmptyToken is the default starting Token.
 const EmptyToken = ""
@@ -77,6 +88,9 @@ func init() {
 }
 
 func main() {
+	// Keeps heroku satisfied.
+	go Gin()
+
 	// Terminate if no token was provided
 	if Token == EmptyToken {
 		fmt.Println("No token provided.")

@@ -1,1 +1,1 @@
-web: skirbot -t $TOKEN
+worker: skirbot -t $TOKEN

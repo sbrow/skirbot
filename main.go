@@ -89,7 +89,7 @@ func init() {
 
 func main() {
 	// Keeps heroku satisfied.
-	go Gin()
+	// go Gin()
 
 	// Terminate if no token was provided
 	if Token == EmptyToken {

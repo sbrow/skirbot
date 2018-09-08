@@ -38,36 +38,31 @@ func Query(m *NewMessage) Result {
 	ret := m.Log()
 	content := strings.TrimPrefix(m.Message.Content, Prefix)
 
-	args := map[string]struct {
-		table string
-		col   string
-	}{
-		"card": {"cards", "name"},
-		"rule": {"glossary", "long"},
-	}
-	query := func(name string) string {
-		return fmt.Sprintf("SELECT %s FROM %s Where levenshtein(name, $1) <=2"+
-		"ORDER BY levenshtein(name, $1) ASC LIMIT 1", args[name].col, args[name].table)
-	}
 	var name *string
-	err := skirmish.QueryRow(query("card"), content).Scan(&name)
+	err := skirmish.QueryRow("SELECT name FROM skirbot where levenshtein(name, $1) <=2"+
+		"ORDER BY levenshtein(name, $1) ASC LIMIT 1", content).Scan(&name)
+	if err != nil {
+		log.Println(err)
+	}
 	if name != nil {
-		card, err := skirmish.Load(*name)
-		if err != nil && !strings.Contains(err.Error(), "No card found") {
+		var card skirmish.Card
+		card, err = skirmish.Load(*name)
+		if card != nil {
+			if err != nil && !strings.Contains(err.Error(), "No card found") {
+				ret.Error = err.Error()
+				return ret
+			}
+			if card != nil {
+				ret.Response = card.String()
+				return ret
+			}
+		}
+		err = skirmish.QueryRow("SELECT long from glossary where name=$1", *name).Scan(&ret.Response)
+		if err != nil {
 			ret.Error = err.Error()
 			return ret
 		}
-		if card != nil {
-			ret.Response = card.String()
-			return ret
-		}
 	}
-	err = skirmish.QueryRow(query("rule"), content).Scan(&name)
-	if err != nil {
-		ret.Error = err.Error()
-		return ret
-	}
-	ret.Response = *name
 	return ret
 }
 

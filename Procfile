@@ -1,1 +1,1 @@
-worker: go run ./main.go -t $TOKEN
+worker: skirbot -t $TOKEN

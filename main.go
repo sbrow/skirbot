@@ -58,7 +58,7 @@ func Query(m *NewMessage) Result {
 	}
 	query := func(name string) string {
 		return fmt.Sprintf("SELECT %s FROM %s Where levenshtein(name, $1) <=2"+
-			"ORDER BY levenshtein(name, $1) ASC LIMIT 1", args[name].col, args[name].table)
+		"ORDER BY levenshtein(name, $1) ASC LIMIT 1", args[name].col, args[name].table)
 	}
 	var name *string
 	err := skirmish.QueryRow(query("card"), content).Scan(&name)

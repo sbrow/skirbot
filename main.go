@@ -42,9 +42,8 @@ func Query(m *NewMessage) Result {
 	err := skirmish.QueryRow("SELECT name FROM skirbot where levenshtein(name, $1) <=2"+
 		"ORDER BY levenshtein(name, $1) ASC LIMIT 1", content).Scan(&name)
 	if err != nil {
-		log.Println(err)
-	}
-	if name != nil {
+		ret.Error = err.Error()
+	} else if name != nil {
 		var card skirmish.Card
 		card, err = skirmish.Load(*name)
 		if card != nil {

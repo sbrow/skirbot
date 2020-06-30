@@ -39,10 +39,12 @@ func Query(m *NewMessage) Result {
 	content := strings.TrimPrefix(m.Message.Content, Prefix)
 
 	var name *string
-	err := skirmish.QueryRow("SELECT name FROM skirbot where levenshtein(name, $1) <=2"+
+	err := skirmish.QueryRow("SELECT name FROM cards where levenshtein(name, $1) <=2"+
 		"ORDER BY levenshtein(name, $1) ASC LIMIT 1", content).Scan(&name)
 	if err != nil {
 		ret.Error = err.Error()
+		err = skirmish.QueryRow("SELECT long from glossary where name=$1", content).Scan(&ret.Response)
+		return ret
 	} else if name != nil {
 		var card skirmish.Card
 		card, err = skirmish.Load(*name)

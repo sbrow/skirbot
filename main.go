@@ -43,7 +43,7 @@ func Query(m *NewMessage) Result {
 		"ORDER BY levenshtein(name, $1) ASC LIMIT 1", content).Scan(&name)
 	if err != nil {
 		ret.Error = err.Error()
-		err = skirmish.QueryRow("SELECT long from glossary where name=$1", content).Scan(&ret.Response)
+		err = skirmish.QueryRow("SELECT long from glossary where levenshtein(name, $1) <= 2", content).Scan(&ret.Response)
 		return ret
 	} else if name != nil {
 		var card skirmish.Card
@@ -58,7 +58,7 @@ func Query(m *NewMessage) Result {
 				return ret
 			}
 		}
-		err = skirmish.QueryRow("SELECT long from glossary where name=$1", *name).Scan(&ret.Response)
+		err = skirmish.QueryRow("SELECT long from glossary where levenshtein(name, $1) <=2", *name).Scan(&ret.Response)
 		if err != nil {
 			ret.Error = err.Error()
 			return ret

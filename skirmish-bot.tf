@@ -51,8 +51,8 @@ resource "heroku_build" "example" {
 
   source = {
     # Deploy local code
-    # path = "."
-    url     = "https://github.com/sbrow/skirbot/archive/master.tar.gz"
+    path = "./"
+    #url     = "https://github.com/sbrow/skirbot/archive/master.tar.gz"
   }
 }
 

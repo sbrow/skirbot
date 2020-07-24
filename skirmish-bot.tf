@@ -8,7 +8,7 @@ variable "token" {
   type        = string
 }
 
-variable "code-version" {
+variable "code_version" {
   description = "The version of code to run"
   type        = string
 }

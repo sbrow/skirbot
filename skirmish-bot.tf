@@ -8,6 +8,11 @@ variable "token" {
   type        = string
 }
 
+variable "code-version" {
+  description = "The version of code to run"
+  type        = string
+}
+
 terraform {
   backend "remote" {
     hostname     = "app.terraform.io"
@@ -46,7 +51,9 @@ resource "heroku_build" "example" {
 
   source = {
     # Deploy local code
-    path = "."
+    # path = "."
+    url     = "https://github.com/username/example/archive/${var.code-version}.tar.gz"
+    version = var.code-version
   }
 }
 

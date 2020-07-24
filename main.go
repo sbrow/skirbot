@@ -1,4 +1,5 @@
-// Command discordBot
+// Command skirbot is a Discord bot that queries information about
+// cards and rules in the Dreamkeepers: Skirmish card game.
 package main
 
 import (

@@ -47,7 +47,7 @@ resource "heroku_build" "example" {
   source = {
     # Deploy local code
     # path = "."
-    url     = "https://github.com/username/example/archive/${env.TFC_CONFIGURATION_VERSION_GIT_COMMIT_SHA}.tar.gz"
+    url     = "https://github.com/username/example/archive/master.tar.gz"
   }
 }
 

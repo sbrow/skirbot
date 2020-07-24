@@ -52,8 +52,8 @@ resource "heroku_build" "example" {
   source = {
     # Deploy local code
     # path = "."
-    url     = "https://github.com/username/example/archive/${var.code-version}.tar.gz"
-    version = var.code-version
+    url     = "https://github.com/username/example/archive/${var.code_version}.tar.gz"
+    version = var.code_version
   }
 }
 

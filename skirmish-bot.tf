@@ -8,6 +8,11 @@ variable "token" {
   type        = string
 }
 
+variable "ver" {
+  description = "Version"
+  type = string
+}
+
 terraform {
   backend "remote" {
     hostname     = "app.terraform.io"
@@ -47,7 +52,7 @@ resource "heroku_build" "example" {
   source = {
     # Deploy local code
     # path = "."
-    url     = "https://github.com/sbrow/skirbot/archive/${env.TFC_CONFIGURATION_VERSION_GIT_COMMIT_SHA}.tar.gz"
+    url     = "https://github.com/sbrow/skirbot/archive/${var.ver}.tar.gz"
   }
 }
 

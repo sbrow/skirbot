@@ -45,7 +45,8 @@ resource "heroku_build" "example" {
   app = heroku_app.app.name
 
   source = {
-    url = "https://github.com/sbrow/skirbot/archive/master.tar.gz"
+    # Deploy local code
+    path = "."
   }
 }
 

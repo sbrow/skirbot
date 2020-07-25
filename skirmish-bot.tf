@@ -8,11 +8,6 @@ variable "token" {
   type        = string
 }
 
-variable "ver" {
-  description = "Version"
-  type = string
-}
-
 terraform {
   backend "remote" {
     hostname     = "app.terraform.io"
@@ -56,6 +51,7 @@ resource "heroku_build" "example" {
   }
 }
 
+/*
 resource "heroku_formation" "example" {
   app        = heroku_app.app.name
   type       = "worker"
@@ -63,3 +59,4 @@ resource "heroku_formation" "example" {
   size       = "Free"
   depends_on = [heroku_build.example]
 }
+*/

@@ -69,7 +69,7 @@ resource "heroku_build" "example" {
   source = {
     # Deploy local code
     # path = "."
-    url = "https://github.com/sbrow/skirbot/archive/${var.commit.commit.sha}.tar.gz"
+    url = "https://github.com/sbrow/skirbot/archive/${jsondecode(data.http.git).commit.sha}.tar.gz"
   }
 }
 

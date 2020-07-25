@@ -8,19 +8,12 @@ variable "token" {
   type        = string
 }
 
-
-variable "commit" {
-  description = "The current commit"
+variable "git-info" {
+  description = "git"
   type        = string
   default     = "master"
 }
 
-variable "git-info" {
-  description = "git"
-  type = map
-  default = data.http.git
-  #default = "master"
-}
 data "http" "git" {
   url = "https://api.github.com/repos/sbrow/skirbot/branches/master"
 
@@ -69,7 +62,7 @@ resource "heroku_build" "example" {
   source = {
     # Deploy local code
     # path = "."
-    url = "https://github.com/sbrow/skirbot/archive/${jsondecode(data.http.git).commit.sha}.tar.gz"
+    url = "https://github.com/sbrow/skirbot/archive/${jsondecode(data.http.git.body).commit.sha}.tar.gz"
   }
 }
 

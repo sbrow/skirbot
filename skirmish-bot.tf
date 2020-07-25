@@ -15,6 +15,12 @@ variable "commit" {
   default     = "master"
 }
 
+variable "git-info" {
+  description = "git"
+  type = map
+  default = data.http.git
+  #default = "master"
+}
 data "http" "git" {
   url = "https://api.github.com/repos/sbrow/skirbot/branches/master"
 
@@ -63,7 +69,7 @@ resource "heroku_build" "example" {
   source = {
     # Deploy local code
     # path = "."
-    url = "https://github.com/sbrow/skirbot/archive/${var.commit}.tar.gz"
+    url = "https://github.com/sbrow/skirbot/archive/${var.commit.commit.sha}.tar.gz"
   }
 }
 

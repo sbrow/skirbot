@@ -8,6 +8,11 @@ variable "token" {
   type        = string
 }
 
+variable "commit" {
+  description = "The current commit"
+  type        = string
+}
+
 terraform {
   backend "remote" {
     hostname     = "app.terraform.io"
@@ -47,7 +52,7 @@ resource "heroku_build" "example" {
   source = {
     # Deploy local code
     # path = "."
-    url     = "https://github.com/sbrow/skirbot/archive/master.tar.gz"
+    url = "https://github.com/sbrow/skirbot/archive/${var.commit}.tar.gz"
   }
 }
 

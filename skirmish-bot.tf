@@ -46,12 +46,11 @@ resource "heroku_build" "example" {
 
   source = {
     # Deploy local code
-    path = "."
-    #url     = "https://github.com/sbrow/skirbot/archive/master.tar.gz"
+    # path = "."
+    url     = "https://github.com/sbrow/skirbot/archive/master.tar.gz"
   }
 }
 
-/*
 resource "heroku_formation" "example" {
   app        = heroku_app.app.name
   type       = "worker"
@@ -59,4 +58,3 @@ resource "heroku_formation" "example" {
   size       = "Free"
   depends_on = [heroku_build.example]
 }
-*/

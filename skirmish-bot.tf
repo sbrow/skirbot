@@ -8,10 +8,18 @@ variable "token" {
   type        = string
 }
 
+
 variable "commit" {
   description = "The current commit"
   type        = string
+  default     = "master"
 }
+
+data "tfe_workspace" "test" {
+  name         = "skirmish-bot"
+  organization = "electricpandafishgames"
+}
+
 
 terraform {
   backend "remote" {

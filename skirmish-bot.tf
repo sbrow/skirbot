@@ -15,16 +15,14 @@ variable "commit" {
   default     = "master"
 }
 
-data "tfe_workspace" "test" {
-  name         = "skirmish-bot"
-  organization = "electricpandafishgames"
-}
+data "http" "git" {
+  url = "https://api.github.com/repos/sbrow/skirbot/branches/master"
 
-data "github_branch" "master" {
-  repository = "sbrow/skirbot"
-  branch     = "master"
+  # Optional request headers
+  request_headers = {
+    Accept = "application/json"
+  }
 }
-
 
 terraform {
   backend "remote" {

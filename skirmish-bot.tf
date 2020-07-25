@@ -20,6 +20,11 @@ data "tfe_workspace" "test" {
   organization = "electricpandafishgames"
 }
 
+data "github_branch" "master" {
+  repository = "sbrow/skirbot"
+  branch     = "master"
+}
+
 
 terraform {
   backend "remote" {

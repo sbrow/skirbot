@@ -8,12 +8,7 @@ variable "token" {
   type        = string
 }
 
-variable "git-info" {
-  description = "git"
-  type        = string
-  default     = "master"
-}
-
+# Get the lastest commit from the master branch.
 data "http" "git" {
   url = "https://api.github.com/repos/sbrow/skirbot/branches/master"
 
@@ -39,7 +34,6 @@ provider "heroku" {
   api_key = var.heroku_api_key
 }
 
-
 resource "heroku_app" "app" {
   name       = "skirmish-bot"
   region     = "us"
@@ -60,8 +54,6 @@ resource "heroku_build" "example" {
   app = heroku_app.app.name
 
   source = {
-    # Deploy local code
-    # path = "."
     url = "https://github.com/sbrow/skirbot/archive/${jsondecode(data.http.git.body).commit.sha}.tar.gz"
   }
 }
